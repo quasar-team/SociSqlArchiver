@@ -10,7 +10,7 @@
 #include <LogIt.h>
 #include <uavariant.h>
 #include <boost/lexical_cast.hpp>
-
+#include <ctime>
 
 namespace SociSqlArchiver
 {
@@ -20,13 +20,8 @@ ArchivedItem::ArchivedItem( const std::string& attribute, const std::string& add
         m_address(addr),
         m_value(value)
 {
-
-        timespec ts;
-        clock_gettime(CLOCK_REALTIME, &ts );
-        int64_t timestamp = (int64_t)(ts.tv_sec) * (int64_t)1000000000 + (int64_t)(ts.tv_nsec);
-
-        m_timestamp = boost::lexical_cast<std::string>( timestamp );
-
+        std::time_t now = time(0);
+        m_timestamp = *localtime(&now);
 }
 
 SociSqlArchiver::SociSqlArchiver(const std::string& sociAddress):
@@ -77,7 +72,8 @@ void SociSqlArchiver::archivingThread()
         {
             for( const ArchivedItem& ai: m_pendingItems  )
             {
-                m_session << "insert into quasar(address,value) values ('" << ai.address() << "','" << ai.value() << "')";
+                m_session << "insert into quasar(address,value,time_stamp) values ('" << ai.address() << "','" << ai.value() << "',:ts)", soci::use(ai.timestamp());
+
             }
             m_pendingItems.clear();
 
@@ -85,6 +81,18 @@ void SociSqlArchiver::archivingThread()
 
 
     }
+}
+
+UaStatus SociSqlArchiver::retrieveAssignment (
+        const UaNodeId&   variableAddress,
+        OpcUa_DateTime    timeFrom,
+        OpcUa_DateTime    timeTo,
+        unsigned int      maxValues,
+        UaDataValues&     output )
+{
+    // first query how many elements we actually have
+    return OpcUa_BadNotSupported;
+
 }
 
 

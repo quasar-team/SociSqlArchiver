@@ -12,6 +12,7 @@
 #include <soci/soci.h>
 #include <list>
 #include <boost/thread.hpp>
+#include <ctime>
 
 namespace SociSqlArchiver
 {
@@ -25,13 +26,13 @@ public:
     std::string attribute() const { return m_attribute; }
     std::string address() const { return m_address; }
     std::string value () const { return m_value; }
-    std::string timestamp() const { return m_timestamp; }
+    std::tm timestamp() const { return m_timestamp; }
 
 private:
     std::string m_attribute;
     std::string m_address;
     std::string m_value;
-    std::string m_timestamp;
+    std::tm m_timestamp;
 };
 
 class SociSqlArchiver: public GenericArchiver::GenericArchiver
@@ -46,6 +47,13 @@ public:
             const std::string& variableName,
             const UaVariant& value,
             UaStatus statusCode  );
+
+    virtual UaStatus retrieveAssignment (
+            const UaNodeId&   variableAddress,
+            OpcUa_DateTime    timeFrom,
+            OpcUa_DateTime    timeTo,
+            unsigned int      maxValues,
+            UaDataValues&     output );
 
     virtual void kill ();
 
