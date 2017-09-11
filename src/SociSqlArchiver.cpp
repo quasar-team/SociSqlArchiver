@@ -5,12 +5,18 @@
  *      Author: pnikiel
  */
 
-#include <SociSqlArchiver.h>
+#include <ctime>
+
+#include <boost/lexical_cast.hpp>
+
+#include <uadatetime.h>
+#include <uavariant.h>
+#include <uadatavalue.h>
+
 #include <ASUtils.h>
 #include <LogIt.h>
-#include <uavariant.h>
-#include <boost/lexical_cast.hpp>
-#include <ctime>
+
+#include <SociSqlArchiver.h>
 
 namespace SociSqlArchiver
 {
@@ -72,7 +78,10 @@ void SociSqlArchiver::archivingThread()
         {
             for( const ArchivedItem& ai: m_pendingItems  )
             {
-                m_session << "insert into quasar(address,value,time_stamp) values ('" << ai.address() << "','" << ai.value() << "',:ts)", soci::use(ai.timestamp());
+                m_session << "insert into quasar(address,value,time_stamp) values (:address,:value,:ts)",
+                        soci::use(ai.address()),
+                        soci::use(ai.value()),
+                        soci::use(ai.timestamp());
 
             }
             m_pendingItems.clear();
@@ -90,8 +99,48 @@ UaStatus SociSqlArchiver::retrieveAssignment (
         unsigned int      maxValues,
         UaDataValues&     output )
 {
+    // TODO: try-catch for SoCi errors
+    std::time_t ttFrom = UaDateTime (timeFrom).toTime_t();
+    std::time_t ttTo = UaDateTime (timeTo).toTime_t();
+    std::tm tmTimeFrom = *localtime( &ttFrom );
+    std::tm tmTimeTo = *localtime( &ttTo) ;
+
+    int count;
+
+//    m_session << "select count(*) from quasar where time_stamp>:ts_from", soci::use(tmTimeFrom), soci::into(count);
+//
+//    LOG(Log::INF) << "rows returned=" << count;
+
+    std::string strVariableAddress ( variableAddress.toString().toUtf8() );
+
+    std::vector<std::string> values (maxValues);
+    std::vector<std::tm> time_stamps (maxValues);
+
+    m_session << "select value,time_stamp from quasar where address = :ad and time_stamp>:ts_from order by time_stamp",
+            soci::use(strVariableAddress),
+            soci::use(ttFrom),
+            soci::into(values),
+            soci::into(time_stamps);
+
+    LOG(Log::INF) << "count was: " << count;
+
+    output.resize( values.size() );
+
+    for (int i=0; i<values.size();  ++i)
+    {
+        LOG(Log::INF) << "ts=" << time_stamps[i].tm_sec << " val=" << values[i];
+        std::time_t tt = mktime( &time_stamps[i] );
+        UaDateTime ts = UaDateTime::fromTime_t(tt);
+        float v = boost::lexical_cast<float>(values[i]);
+        UaDataValue dv ( v, OpcUa_Good, ts, ts );
+        dv.copyTo(&output[i]);
+        //output[i]
+    }
+
+
+
     // first query how many elements we actually have
-    return OpcUa_BadNotSupported;
+    return OpcUa_Good;
 
 }
 
