@@ -32,6 +32,7 @@ ArchivedItem::ArchivedItem( const std::string& attribute, const std::string& add
 
 SociSqlArchiver::SociSqlArchiver(const std::string& sociAddress):
         m_session(sociAddress),
+        m_retrievalSession(sociAddress),
         m_isRunning(true)
 {
     // singleton: let only one specific archiver in the system
@@ -102,23 +103,17 @@ UaStatus SociSqlArchiver::retrieveAssignment (
     // TODO: try-catch for SoCi errors
     std::time_t ttFrom = UaDateTime (timeFrom).toTime_t();
     std::time_t ttTo = UaDateTime (timeTo).toTime_t();
-    std::tm tmTimeFrom = *localtime( &ttFrom );
-    std::tm tmTimeTo = *localtime( &ttTo) ;
-
     int count;
-
-//    m_session << "select count(*) from quasar where time_stamp>:ts_from", soci::use(tmTimeFrom), soci::into(count);
-//
-//    LOG(Log::INF) << "rows returned=" << count;
 
     std::string strVariableAddress ( variableAddress.toString().toUtf8() );
 
     std::vector<std::string> values (maxValues);
     std::vector<std::tm> time_stamps (maxValues);
 
-    m_session << "select value,time_stamp from quasar where address = :ad and time_stamp>:ts_from order by time_stamp",
+    m_retrievalSession << "select value,time_stamp from quasar where address = :ad and time_stamp>:ts_from and time_stamp<:ts_to order by time_stamp",
             soci::use(strVariableAddress),
             soci::use(ttFrom),
+            soci::use(ttTo),
             soci::into(values),
             soci::into(time_stamps);
 
@@ -131,7 +126,10 @@ UaStatus SociSqlArchiver::retrieveAssignment (
         LOG(Log::INF) << "ts=" << time_stamps[i].tm_sec << " val=" << values[i];
         std::time_t tt = mktime( &time_stamps[i] );
         UaDateTime ts = UaDateTime::fromTime_t(tt);
+
+
         float v = boost::lexical_cast<float>(values[i]);
+
         UaDataValue dv ( v, OpcUa_Good, ts, ts );
         dv.copyTo(&output[i]);
         //output[i]

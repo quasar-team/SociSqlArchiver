@@ -61,6 +61,7 @@ public:
 
 private:
     soci::session m_session;
+    soci::session m_retrievalSession;
     boost::thread m_archiverThread;
     bool m_isRunning;
     std::list<ArchivedItem> m_pendingItems;
